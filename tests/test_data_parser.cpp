@@ -1,233 +1,213 @@
-/**
- * test_data_parser.cpp — AI 生成的 DataParser 单元测试
- *
- * 在演示时，可以删除本文件，然后在 OpenCode 中输入 prompt 重新生成。
- */
-
 #include <gtest/gtest.h>
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <optional>
 #include "data_parser.h"
 
-// ============================================================
-// parseKeyValue
-// ============================================================
+// ==================== parseKeyValue ====================
 
-TEST(DataParserTest, ParseKeyValueBasic) {
-    auto [key, value] = DataParser::parseKeyValue("name=OpenCode");
+TEST(DataParserTest, ParseKeyValue_Normal) {
+    // 正常：简单键值对
+    auto [key, value] = DataParser::parseKeyValue("name=John");
     EXPECT_EQ(key, "name");
-    EXPECT_EQ(value, "OpenCode");
+    EXPECT_EQ(value, "John");
 }
 
-TEST(DataParserTest, ParseKeyValueWithSpaces) {
-    auto [key, value] = DataParser::parseKeyValue("  key  =  value  ");
-    EXPECT_EQ(key, "key");
-    EXPECT_EQ(value, "value");
+TEST(DataParserTest, ParseKeyValue_Boundary) {
+    // 边界：值中包含等号，应以首个 '=' 分割
+    auto [kv1, vv1] = DataParser::parseKeyValue("key=val=ue");
+    EXPECT_EQ(kv1, "key");
+    EXPECT_EQ(vv1, "val=ue");
+
+    // 边界：值为空
+    auto [kv2, vv2] = DataParser::parseKeyValue("key=");
+    EXPECT_EQ(kv2, "key");
+    EXPECT_EQ(vv2, "");
 }
 
-TEST(DataParserTest, ParseKeyValueEmptyValue) {
-    auto [key, value] = DataParser::parseKeyValue("flag=");
-    EXPECT_EQ(key, "flag");
-    EXPECT_EQ(value, "");
+TEST(DataParserTest, ParseKeyValue_Error) {
+    // 异常：无等号
+    EXPECT_THROW(DataParser::parseKeyValue("no_equals"), std::invalid_argument);
+    // 异常：等号在最前面
+    EXPECT_THROW(DataParser::parseKeyValue("=no_key"), std::invalid_argument);
 }
 
-TEST(DataParserTest, ParseKeyValueNoEquals) {
-    EXPECT_THROW(DataParser::parseKeyValue("noequals"), std::invalid_argument);
-}
+// ==================== parseIntList ====================
 
-TEST(DataParserTest, ParseKeyValueStartsWithEquals) {
-    EXPECT_THROW(DataParser::parseKeyValue("=value"), std::invalid_argument);
-}
-
-TEST(DataParserTest, ParseKeyValueWithEqualsInValue) {
-    auto [key, value] = DataParser::parseKeyValue("expr=1+2=3");
-    EXPECT_EQ(key, "expr");
-    EXPECT_EQ(value, "1+2=3");
-}
-
-// ============================================================
-// parseIntList
-// ============================================================
-
-TEST(DataParserTest, ParseIntListBasic) {
-    auto result = DataParser::parseIntList("1,2,3,4,5");
-    ASSERT_EQ(result.size(), 5u);
-    EXPECT_EQ(result[0], 1);
-    EXPECT_EQ(result[4], 5);
-}
-
-TEST(DataParserTest, ParseIntListWithSpaces) {
-    auto result = DataParser::parseIntList(" 1 , 2 , 3 ");
+TEST(DataParserTest, ParseIntList_Normal) {
+    auto result = DataParser::parseIntList("1,2,3");
     ASSERT_EQ(result.size(), 3u);
     EXPECT_EQ(result[0], 1);
     EXPECT_EQ(result[1], 2);
     EXPECT_EQ(result[2], 3);
 }
 
-TEST(DataParserTest, ParseIntListEmpty) {
-    auto result = DataParser::parseIntList("");
-    EXPECT_TRUE(result.empty());
+TEST(DataParserTest, ParseIntList_Boundary) {
+    // 空字符串
+    EXPECT_TRUE(DataParser::parseIntList("").empty());
+    // 带空格
+    auto result = DataParser::parseIntList(" 1 , 2 , 3 ");
+    ASSERT_EQ(result.size(), 3u);
+    EXPECT_EQ(result[0], 1);
 }
 
-TEST(DataParserTest, ParseIntListSkipInvalid) {
+TEST(DataParserTest, ParseIntList_SkipInvalid) {
+    // 包含非数字项应跳过（不抛异常）
     auto result = DataParser::parseIntList("1,abc,3");
     ASSERT_EQ(result.size(), 2u);
     EXPECT_EQ(result[0], 1);
     EXPECT_EQ(result[1], 3);
 }
 
-TEST(DataParserTest, ParseIntListNegative) {
-    auto result = DataParser::parseIntList("-1,0,1");
-    ASSERT_EQ(result.size(), 3u);
-    EXPECT_EQ(result[0], -1);
-    EXPECT_EQ(result[2], 1);
-}
+// ==================== toInt ====================
 
-// ============================================================
-// toInt / toDouble / toBool
-// ============================================================
-
-TEST(DataParserTest, ToInt) {
+TEST(DataParserTest, ToInt_Normal) {
     EXPECT_EQ(DataParser::toInt("42"), 42);
     EXPECT_EQ(DataParser::toInt("-7"), -7);
     EXPECT_EQ(DataParser::toInt("0"), 0);
-    EXPECT_FALSE(DataParser::toInt("3.14").has_value());
-    EXPECT_FALSE(DataParser::toInt("abc").has_value());
+}
+
+TEST(DataParserTest, ToInt_Boundary) {
     EXPECT_FALSE(DataParser::toInt("").has_value());
-    EXPECT_FALSE(DataParser::toInt("42abc").has_value()); // trailing chars
+    EXPECT_FALSE(DataParser::toInt("  ").has_value());
 }
 
-TEST(DataParserTest, ToDouble) {
+TEST(DataParserTest, ToInt_Invalid) {
+    // 非纯数字返回 nullopt
+    EXPECT_FALSE(DataParser::toInt("abc").has_value());
+    EXPECT_FALSE(DataParser::toInt("12abc").has_value());
+}
+
+// ==================== toDouble ====================
+
+TEST(DataParserTest, ToDouble_Normal) {
     EXPECT_DOUBLE_EQ(DataParser::toDouble("3.14").value(), 3.14);
-    EXPECT_DOUBLE_EQ(DataParser::toDouble("-0.5").value(), -0.5);
-    EXPECT_DOUBLE_EQ(DataParser::toDouble("42").value(), 42.0);
-    EXPECT_FALSE(DataParser::toDouble("abc").has_value());
+    EXPECT_DOUBLE_EQ(DataParser::toDouble("-2.5").value(), -2.5);
+    EXPECT_DOUBLE_EQ(DataParser::toDouble("0").value(), 0.0);
+}
+
+TEST(DataParserTest, ToDouble_Boundary) {
     EXPECT_FALSE(DataParser::toDouble("").has_value());
+    EXPECT_FALSE(DataParser::toDouble("abc").has_value());
 }
 
-TEST(DataParserTest, ToBool) {
-    EXPECT_TRUE(DataParser::toBool("true").value());
-    EXPECT_TRUE(DataParser::toBool("True").value());
-    EXPECT_TRUE(DataParser::toBool("TRUE").value());
-    EXPECT_TRUE(DataParser::toBool("1").value());
-    EXPECT_TRUE(DataParser::toBool("yes").value());
-    EXPECT_FALSE(DataParser::toBool("false").value());
-    EXPECT_FALSE(DataParser::toBool("0").value());
-    EXPECT_FALSE(DataParser::toBool("no").value());
+TEST(DataParserTest, ToDouble_Invalid) {
+    EXPECT_FALSE(DataParser::toDouble("3.14abc").has_value());
+}
+
+// ==================== toBool ====================
+
+TEST(DataParserTest, ToBool_Normal) {
+    EXPECT_EQ(DataParser::toBool("true"), true);
+    EXPECT_EQ(DataParser::toBool("false"), false);
+    EXPECT_EQ(DataParser::toBool("1"), true);
+    EXPECT_EQ(DataParser::toBool("0"), false);
+    EXPECT_EQ(DataParser::toBool("yes"), true);
+    EXPECT_EQ(DataParser::toBool("no"), false);
+}
+
+TEST(DataParserTest, ToBool_CaseInsensitive) {
+    EXPECT_EQ(DataParser::toBool("TRUE"), true);
+    EXPECT_EQ(DataParser::toBool("True"), true);
+    EXPECT_EQ(DataParser::toBool("FALSE"), false);
+    EXPECT_EQ(DataParser::toBool("Yes"), true);
+}
+
+TEST(DataParserTest, ToBool_Invalid) {
     EXPECT_FALSE(DataParser::toBool("maybe").has_value());
+    EXPECT_FALSE(DataParser::toBool("2").has_value());
+    EXPECT_FALSE(DataParser::toBool("").has_value());
 }
 
-// ============================================================
-// parseIni
-// ============================================================
+// ==================== parseIni ====================
 
-TEST(DataParserTest, ParseIniBasic) {
-    std::string ini = R"(
-[database]
-host=localhost
-port=3306
-
-[server]
-port=8080
-debug=true
-)";
+TEST(DataParserTest, ParseIni_Normal) {
+    std::string ini = "[database]\nhost=localhost\nport=5432\n\n[server]\nport=8080\n";
     auto result = DataParser::parseIni(ini);
     EXPECT_EQ(result["database"]["host"], "localhost");
-    EXPECT_EQ(result["database"]["port"], "3306");
+    EXPECT_EQ(result["database"]["port"], "5432");
     EXPECT_EQ(result["server"]["port"], "8080");
-    EXPECT_EQ(result["server"]["debug"], "true");
 }
 
-TEST(DataParserTest, ParseIniEmptyContent) {
-    auto result = DataParser::parseIni("");
-    EXPECT_TRUE(result.empty());
+TEST(DataParserTest, ParseIni_Boundary) {
+    // 空 INI
+    auto empty = DataParser::parseIni("");
+    EXPECT_TRUE(empty.empty());
+
+    // 无 section 的键值对归入默认 section
+    auto result = DataParser::parseIni("key=value");
+    EXPECT_EQ(result[""]["key"], "value");
 }
 
-TEST(DataParserTest, ParseIniCommentsAndBlankLines) {
-    std::string ini = R"(
-; This is a comment
-# Another comment
-
-[section]
-key=value
-)";
+TEST(DataParserTest, ParseIni_Comments) {
+    // 注释行应被跳过
+    std::string ini = "[test]\n; comment\nkey=val\n# another comment\nkey2=val2\n";
     auto result = DataParser::parseIni(ini);
-    EXPECT_EQ(result["section"]["key"], "value");
+    EXPECT_EQ(result["test"].size(), 2u);
+    EXPECT_EQ(result["test"]["key"], "val");
+    EXPECT_EQ(result["test"]["key2"], "val2");
 }
 
-TEST(DataParserTest, ParseIniGlobalSection) {
-    std::string ini = "key1=value1\nkey2=value2";
-    auto result = DataParser::parseIni(ini);
-    EXPECT_EQ(result[""]["key1"], "value1");
-    EXPECT_EQ(result[""]["key2"], "value2");
+// ==================== parseValue ====================
+
+TEST(DataParserTest, ParseValue_Bool) {
+    EXPECT_EQ(std::get<bool>(DataParser::parseValue("true")), true);
+    EXPECT_EQ(std::get<bool>(DataParser::parseValue("false")), false);
 }
 
-// ============================================================
-// parseValue
-// ============================================================
-
-TEST(DataParserTest, ParseValueBool) {
-    auto v1 = DataParser::parseValue("true");
-    EXPECT_TRUE(std::holds_alternative<bool>(v1));
-    EXPECT_TRUE(std::get<bool>(v1));
-
-    auto v2 = DataParser::parseValue("false");
-    EXPECT_TRUE(std::holds_alternative<bool>(v2));
-    EXPECT_FALSE(std::get<bool>(v2));
+TEST(DataParserTest, ParseValue_Int) {
+    EXPECT_EQ(std::get<int>(DataParser::parseValue("42")), 42);
+    EXPECT_EQ(std::get<int>(DataParser::parseValue("-7")), -7);
 }
 
-TEST(DataParserTest, ParseValueInt) {
-    auto v = DataParser::parseValue("42");
-    EXPECT_TRUE(std::holds_alternative<int>(v));
-    EXPECT_EQ(std::get<int>(v), 42);
+TEST(DataParserTest, ParseValue_Double) {
+    EXPECT_DOUBLE_EQ(std::get<double>(DataParser::parseValue("3.14")), 3.14);
 }
 
-TEST(DataParserTest, ParseValueDouble) {
-    auto v = DataParser::parseValue("3.14");
-    EXPECT_TRUE(std::holds_alternative<double>(v));
-    EXPECT_DOUBLE_EQ(std::get<double>(v), 3.14);
+TEST(DataParserTest, ParseValue_String) {
+    // 带引号的字符串
+    EXPECT_EQ(std::get<std::string>(DataParser::parseValue("\"hello\"")), "hello");
+    EXPECT_EQ(std::get<std::string>(DataParser::parseValue("'world'")), "world");
+    // 无引号 fallback
+    EXPECT_EQ(std::get<std::string>(DataParser::parseValue("plaintext")), "plaintext");
 }
 
-TEST(DataParserTest, ParseValueString) {
-    auto v1 = DataParser::parseValue("\"hello world\"");
-    EXPECT_TRUE(std::holds_alternative<std::string>(v1));
-    EXPECT_EQ(std::get<std::string>(v1), "hello world");
-
-    auto v2 = DataParser::parseValue("'quoted'");
-    EXPECT_TRUE(std::holds_alternative<std::string>(v2));
-    EXPECT_EQ(std::get<std::string>(v2), "quoted");
+TEST(DataParserTest, ParseValue_Null) {
+    // null 和 nullptr 都解析为空字符串
+    EXPECT_EQ(std::get<std::string>(DataParser::parseValue("null")), "");
+    EXPECT_EQ(std::get<std::string>(DataParser::parseValue("nullptr")), "");
 }
 
-TEST(DataParserTest, ParseValueNull) {
-    auto v = DataParser::parseValue("null");
-    EXPECT_TRUE(std::holds_alternative<std::string>(v));
-    EXPECT_EQ(std::get<std::string>(v), "");
-}
+// ==================== escape / unescape ====================
 
-TEST(DataParserTest, ParseValueUnknownFallback) {
-    auto v = DataParser::parseValue("unknown_token");
-    EXPECT_TRUE(std::holds_alternative<std::string>(v));
-    EXPECT_EQ(std::get<std::string>(v), "unknown_token");
-}
-
-// ============================================================
-// escape / unescape
-// ============================================================
-
-TEST(DataParserTest, Escape) {
-    EXPECT_EQ(DataParser::escape("hello\"world"), "hello\\\"world");
+TEST(DataParserTest, Escape_Normal) {
+    EXPECT_EQ(DataParser::escape("a\"b"), "a\\\"b");
     EXPECT_EQ(DataParser::escape("a\\b"), "a\\\\b");
-    EXPECT_EQ(DataParser::escape("line1\nline2"), "line1\\nline2");
-    EXPECT_EQ(DataParser::escape("tab\there"), "tab\\there");
-    EXPECT_EQ(DataParser::escape("normal"), "normal");
+    EXPECT_EQ(DataParser::escape("a\nb"), "a\\nb");
+    EXPECT_EQ(DataParser::escape("a\tb"), "a\\tb");
+    EXPECT_EQ(DataParser::escape("a\rb"), "a\\rb");
 }
 
-TEST(DataParserTest, Unescape) {
-    EXPECT_EQ(DataParser::unescape("hello\\\"world"), "hello\"world");
+TEST(DataParserTest, Escape_NoSpecial) {
+    EXPECT_EQ(DataParser::escape("hello"), "hello");
+    EXPECT_EQ(DataParser::escape(""), "");
+}
+
+TEST(DataParserTest, Unescape_Normal) {
+    EXPECT_EQ(DataParser::unescape("a\\\"b"), "a\"b");
     EXPECT_EQ(DataParser::unescape("a\\\\b"), "a\\b");
-    EXPECT_EQ(DataParser::unescape("line1\\nline2"), "line1\nline2");
-    EXPECT_EQ(DataParser::unescape("tab\\there"), "tab\there");
+    EXPECT_EQ(DataParser::unescape("a\\nb"), "a\nb");
+    EXPECT_EQ(DataParser::unescape("a\\tb"), "a\tb");
+    EXPECT_EQ(DataParser::unescape("a\\rb"), "a\rb");
 }
 
-TEST(DataParserTest, EscapeUnescapeRoundtrip) {
-    std::string original = "Hello\t\"World\"\nNew\\Line";
+TEST(DataParserTest, EscapeUnescape_RoundTrip) {
+    // 转义后再反转义，应还原
+    std::string original = "hello \"world\"\n\ttab\\end";
     EXPECT_EQ(DataParser::unescape(DataParser::escape(original)), original);
+}
+
+TEST(DataParserTest, EscapeUnescape_Empty) {
+    EXPECT_EQ(DataParser::unescape(DataParser::escape("")), "");
 }
