@@ -1,6 +1,7 @@
 #include "data_parser.h"
 #include <sstream>
 #include <cctype>
+#include <algorithm>
 #include <charconv>
 
 std::pair<std::string, std::string> DataParser::parseKeyValue(const std::string& input) {

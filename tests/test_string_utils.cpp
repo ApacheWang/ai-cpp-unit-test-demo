@@ -28,9 +28,10 @@ TEST(StringUtilsTest, ToLowerBasic) {
 }
 
 TEST(StringUtilsTest, CaseConversionRoundtrip) {
+    // toUpper(toLower(str)) 和 toLower(toUpper(str)) 应该一致（全小写/全大写）
     std::string original = "Hello World 123";
-    EXPECT_EQ(StringUtils::toLower(StringUtils::toUpper(original)),
-              original);
+    EXPECT_EQ(StringUtils::toUpper(StringUtils::toLower(original)),
+              StringUtils::toUpper(original));
 }
 
 // ============================================================
