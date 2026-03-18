@@ -20,11 +20,37 @@ ai-cpp-unit-test-demo/
 │   └── data_parser.cpp    # 数据解析器实现
 ├── tests/
 │   ├── CMakeLists.txt     # 测试的 CMake 配置
-│   └── test_calculator.cpp   # AI 生成的单元测试（演示重点）
+│   ├── test_calculator.cpp    # 单元测试
+│   ├── test_string_utils.cpp  # 单元测试
+│   └── test_data_parser.cpp   # 单元测试
+├── .opencode/
+│   └── skills/
+│       └── cpp-unit-test/
+│           └── SKILL.md   # 🔑 OpenCode Skill — C++ 单元测试生成规范
 ├── CMakeLists.txt         # 顶层 CMake 配置
-├── opencode.json          # OpenCode 配置文件
 ├── AGENTS.md              # OpenCode Agent 指令
+├── OPENCODE_GUIDE.md      # OpenCode 使用指南
 └── README.md
+```
+
+## 🔑 OpenCode Skill: cpp-unit-test
+
+本项目包含一个系统化的 OpenCode Skill，定义在 `.opencode/skills/cpp-unit-test/SKILL.md`。
+
+**核心特性：**
+
+- **Phase 0 — Pre-Flight Checks** — 读取头文件、分析实现、检查已有测试，绝不猜测 API
+- **Phase 1 — Interface Analysis** — 方法分类（纯函数/有状态/查询/工厂/异常/错误码/模板）
+- **Phase 2 — Coverage Matrix** — 系统化覆盖矩阵：正常路径、空/零输入、边界值、无效输入、数学属性
+- **Phase 3 — Code Generation Rules** — 断言选择指南、Fixture 设计、参数化测试、类型参数化、gMock Matchers
+- **Phase 4 — CMake Integration** — 测试 CMake 模板、编译运行命令
+- **Phase 5 — Quality Audit Checklist** — 完整性/正确性/断言质量/设计反模式检查
+- **Phase 6 — Multi-Agent Patterns** — Generate+Review、并行生成、增量扩展
+- **Prompt Templates** — 全量生成、增量补充、质量审查、修复编译错误
+
+**使用方式：** 在 OpenCode 中输入 prompt 时引用 skill 即可：
+```
+Follow the cpp-unit-test skill to generate tests for @include/calculator.h
 ```
 
 ## 🛠 环境准备
